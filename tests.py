@@ -1,95 +1,172 @@
 """
-Calificacion del laboratorio
+Regresión Lineal Multiple
 -----------------------------------------------------------------------------------------
+En este laboratorio se entrenara un modelo de regresión lineal multiple que incluye la 
+selección de las n variables más relevantes usando una prueba f.
 """
+# pylint: disable=invalid-name
+# pylint: disable=unsubscriptable-object
 
-import sys
-
-import preguntas
+import pandas as pd
 
 
-def test_01():
+def pregunta_01():
     """
-    ---< Input/Output test case >----------------------------------------------------
-    Pregunta 01
-    pip3 install scikit-learn pandas numpy
-    python3 tests.py 01
+    Carga de datos.
+    -------------------------------------------------------------------------------------
+    """
+    # Lea el archivo `insurance.csv` y asignelo al DataFrame `df`
+    df = pd.read_csv(r'E:\TEMP_ MASTER\regresion-lineal-multiple-insurance-alosanchezvi-main\insurance.csv')
+
+    # Asigne la columna `charges` a la variable `y`.
+    y = df.charges
+
+    # Asigne una copia del dataframe `df` a la variable `X`.
+    X = df.copy()
+
+    # Remueva la columna `charges` del DataFrame `X`.
+    X.drop('charges',axis=1, inplace=True)
+
+    # Retorne `X` y `y`
+    return X, y
+
+
+def pregunta_02():
+    """
+    Preparación de los conjuntos de datos.
+    -------------------------------------------------------------------------------------
     """
 
-    X, y = preguntas.pregunta_01()
-    assert X.shape == (1338, 6)
-    assert y.shape == (1338,)
-    assert "charges" not in X.columns
+    # Importe train_test_split
+    from sklearn.model_selection import train_test_split
+
+    # Cargue los datos y asigne los resultados a `X` y `y`.
+    X, y = pregunta_01()
+
+    # Divida los datos de entrenamiento y prueba. La semilla del generador de números
+    # aleatorios es 12345. Use 300 patrones para la muestra de prueba.
+    (X_train, X_test, y_train, y_test,) = train_test_split(
+        X,
+        y,
+        test_size=300,
+        random_state=12345,
+    )
+
+    # Retorne `X_train`, `X_test`, `y_train` y `y_test`
+    return X_train, X_test, y_train, y_test
 
 
-def test_02():
+def pregunta_03():
     """
-    ---< Input/Output test case >----------------------------------------------------
-    Pregunta 02
-    pip3 install scikit-learn pandas numpy
-    python3 tests.py 02
-    (139, 10)
-    -0.7869
-    69.6029
-    <class 'pandas.core.series.Series'>
-    0.629
+    Especificación del pipeline y entrenamiento
+    -------------------------------------------------------------------------------------
     """
 
-    x_train, x_test, y_train, y_test = preguntas.pregunta_02()
+    # Importe make_column_selector
+    # Importe make_column_transformer
+    # Importe SelectKBest
+    # Importe f_regression
+    # Importe LinearRegression
+    # Importe GridSearchCV
+    # Importe Pipeline
+    # Importe OneHotEncoder
+    from sklearn.compose import make_column_selector
+    from sklearn.compose import make_column_transformer
+    from sklearn.feature_selection import SelectKBest
+    from sklearn.feature_selection import f_regression
+    from sklearn.linear_model import LinearRegression
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder
 
-    assert x_train.sex.value_counts().to_dict() == {"male": 536, "female": 502}
-    assert x_test.sex.value_counts().to_dict() == {"female": 160, "male": 140}
-    assert x_train.region.value_counts().to_dict() == {
-        "southeast": 289,
-        "northwest": 261,
-        "southwest": 244,
-        "northeast": 244,
+    pipeline = Pipeline(
+        steps=[
+            # Paso 1: Construya un column_transformer que aplica OneHotEncoder a las
+            # variables categóricas, y no aplica ninguna transformación al resto de
+            # las variables.
+            (
+                "column_transfomer",
+                make_column_transformer(
+                    (
+                        OneHotEncoder(),
+                        make_column_selector(dtype_include=object),
+                    ),
+                    remainder='passthrough',
+                ),
+            ),
+            # Paso 2: Construya un selector de características que seleccione las K
+            # características más importantes. Utilice la función f_regression.
+            (
+                "selectKBest",
+                SelectKBest(score_func=f_regression),
+            ),
+            # Paso 3: Construya un modelo de regresión lineal.
+            (
+                "linearRegression",
+                LinearRegression(),
+            ),
+        ],
+    )
+
+    # Cargua de las variables.
+    X_train, X_test, y_train, y_test = pregunta_02()
+
+    # Defina un diccionario de parámetros para el GridSearchCV. Se deben
+    # considerar valores desde 1 hasta 11 regresores para el modelo
+    param_grid = {
+        'selectKBest__k': np.arange(1, 12),
     }
 
-    assert x_test.region.value_counts().to_dict() == {
-        "southwest": 81,
-        "northeast": 80,
-        "southeast": 75,
-        "northwest": 64,
-    }
-    assert y_train.sum().round(2) == 13825369.07
-    assert y_test.sum().round(2) == 3930455.92
+    # Defina una instancia de GridSearchCV con el pipeline y el diccionario de
+    # parámetros. Use cv = 5, y como métrica de evaluación el valor negativo del
+    # error cuadrático medio.
+    gridSearchCV = GridSearchCV(
+        estimator=pipeline,
+        param_grid=param_grid,
+        cv=5,
+        scoring='neg_mean_squared_error',
+        refit=True,
+        return_train_score=False,
+    )
+
+    # Búsque la mejor combinación de regresores
+    gridSearchCV.fit(X_train, y_train)
+
+    # Retorne el mejor modelo
+    return gridSearchCV
 
 
-def test_03():
+def pregunta_04():
     """
-    ---< Run command >-----------------------------------------------------------------
-    Pregunta 03
-    pip3 install scikit-learn pandas numpy
-    python3 tests.py 03
-    """
-
-    x_train, x_test, y_train, y_test = preguntas.pregunta_02()
-    pipeline = preguntas.pregunta_03()
-
-    assert pipeline.score(x_train, y_train).round(2) == -36943883.57
-    assert pipeline.score(x_test, y_test).round(2) == -35336798.88
-
-
-def test_04():
-    """
-    ---< Run command >--------------------------------------------------------------------
-    Pregunta 04
-    pip3 install scikit-learn pandas numpy
-    python3 tests.py 04
+    Evaluación del modelo
+    -------------------------------------------------------------------------------------
     """
 
-    mse_train, mse_test = preguntas.pregunta_04()
+    # Importe mean_squared_error
+    from sklearn.metrics import mean_squared_error
 
-    assert mse_train == 36943883.57
-    assert mse_test == 35336798.88
+    # Obtenga el pipeline optimo de la pregunta 3.
+    gridSearchCV = pregunta_03()
 
+    # Cargue las variables.
+    X_train, X_test, y_train, y_test = pregunta_02()
 
-test = {
-    "01": test_01,
-    "02": test_02,
-    "03": test_03,
-    "04": test_04,
-}[sys.argv[1]]
+    # Evalúe el modelo con los conjuntos de entrenamiento y prueba.
+    y_train_pred = gridSearchCV.predict(X_train)
+    y_test_pred = gridSearchCV.predict(X_test)
 
-test()
+    # Compute el error cuadratico medio de entrenamiento y prueba. Redondee los
+    # valores a dos decimales.
+
+    mse_train = mean_squared_error(
+        y_train_pred,
+        y_train,
+    ).round(2)
+
+    mse_test = mean_squared_error(
+        y_test_pred,
+        y_test,
+    ).round(2)
+
+    # Retorne el error cuadrático medio para entrenamiento y prueba
+    return mse_train, mse_test
